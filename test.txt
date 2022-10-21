@@ -1,0 +1,489 @@
+import { useEffect, useState } from 'react'
+
+import { ethers } from 'ethers'
+import Web3Modal from "web3modal"
+import {
+  contractSwapAddress
+} from '../config'
+import UniversalProfile from '@lukso/lsp-smart-contracts/artifacts/UniversalProfile.json';
+import KeyManager from '@lukso/lsp-smart-contracts/artifacts/LSP6KeyManager.json';
+
+import ContractSwap from '../artifacts/contracts/ContractSwap.sol/ContractSwap.json'
+export const Header = (props) => {
+  const [saleContracts, setSaleContracts] = useState(false)
+  const [offeredContracts, setOfferedContracts] = useState(false)
+  const [errorState, setErrorState] = useState(false)
+  const [currencyState, setCurrencyState] = useState("LYXt")
+  const [loadingState, setLoadingState] = useState('not-loaded')
+  const [formInput, updateFormInput] = useState({ contractAddress: '', buyerAddress: '', price: '' })
+  // this should be wallet connected
+  const contractSwapAddress = "0x23Cbff3674Df990aD1c62C5F11dD3745d018Db66"
+  useEffect(() => {
+    requireWallet()
+  }, [])
+
+  async function requireWallet() {
+    //remember that the provider will need to be updated right now is null as is local
+    console.log("we are here")
+    const web3Modal = new Web3Modal()
+    const connection = await web3Modal.connect()
+    const provider = new ethers.providers.Web3Provider(connection)
+    const signer = provider.getSigner()
+    const contract = new ethers.Contract(contractSwapAddress, ContractSwap.abi, signer)
+    console.log("whaaaats happening 11 adsfasdf")
+
+    // load saleContracts too
+    let userContracts = []
+    let returnedContracts = await contract.getUserListedContracts();
+    console.log("whaaaats happening 222")
+    setLoadingState('loaded')
+    if (returnedContracts.length > 0) {
+      for (let i = 0; i < returnedContracts.length; i++) {
+        let price = ethers.utils.formatUnits(returnedContracts[i].price.toString(), 'ether')
+        let userContract = { contractAddress: returnedContracts[i].contractAddress, buyerAddress: returnedContracts[i].buyerAddress, price, contractSubmitted: "No", currency: returnedContracts[i].currency }
+        let ownableContract = new ethers.Contract(returnedContracts[i].contractAddress, ContractSwap.abi, signer)
+        console.log("the pricee,", userContract)
+        if (await ownableContract.owner() === contractSwapAddress) {
+          userContract.contractSubmitted = "Yes"
+        }
+        console.log("thiiis", userContract.currency)
+
+        userContracts.push(userContract)
+      }
+      setSaleContracts(userContracts)
+    }
+    console.log("hellooo12", returnedContracts)
+    userContracts = []
+    returnedContracts = await contract.getUserOfferedContracts();
+
+    if (returnedContracts.length > 0) {
+      for (let i = 0; i < returnedContracts.length; i++) {
+        let price = ethers.utils.formatUnits(returnedContracts[i].price.toString(), 'ether')
+        let userContract = { contractAddress: returnedContracts[i].contractAddress, sellerAddress: returnedContracts[i].sellerAddress, price, contractSubmitted: "No", currency: returnedContracts[i].currency }
+        let ownableContract = new ethers.Contract(returnedContracts[i].contractAddress, ContractSwap.abi, signer)
+        console.log("the pricee,", userContract)
+        if (await ownableContract.owner() === contractSwapAddress) {
+          userContract.contractSubmitted = "Yes"
+        }
+        userContracts.push(userContract)
+      }
+      console.log("hellooo aquiii11", userContracts)
+      setOfferedContracts(userContracts)
+    }
+
+  }
+
+  async function contractSwapState() {
+    setLoadingState('contractSwap')
+    console.log(loadingState)
+  }
+
+  async function transferContract(contractAddress) {
+    const web3Modal = new Web3Modal()
+    const connection = await web3Modal.connect()
+    const provider = new ethers.providers.Web3Provider(connection)
+    const signer = provider.getSigner()
+    const contract = new ethers.Contract(contractAddress, ContractSwap.abi, signer)
+    const transaction = await contract.transferOwnership(contractSwapAddress)
+  }
+
+  async function returnContract(contractAddress) {
+    const web3Modal = new Web3Modal()
+    const connection = await web3Modal.connect()
+    const provider = new ethers.providers.Web3Provider(connection)
+    const signer = provider.getSigner()
+    const contract = new ethers.Contract(contractSwapAddress, ContractSwap.abi, signer)
+    const transaction = await contract.returnContract(contractAddress)
+  }
+
+  async function purchaseContract(contractAddress, contractPrice) {
+    const web3Modal = new Web3Modal()
+    const connection = await web3Modal.connect()
+    const provider = new ethers.providers.Web3Provider(connection)
+    const signer = provider.getSigner()
+    const contract = new ethers.Contract(contractSwapAddress, ContractSwap.abi, signer)
+    // !!! aqui falta
+    const price = ethers.utils.parseUnits(contractPrice, 'ether')
+    const abi = require('erc-20-abi')
+    const token = new ethers.Contract("0xe11A86849d99F524cAC3E7A0Ec1241828e332C62", abi, signer)
+    console.log("ksjdhaflkjha", contractSwapAddress)
+    await token.approve("0x20054a1376eE6864783e2f7601E53d1F93d29FC1", price);
+    // YOU need to update this~!!!!!!!!!!!!!!!!!!!!!!
+    const transaction = await contract.purchaseContract(contractAddress, { value: price })
+  }
+
+  async function createContractSwap() {
+    // connect it to the contract
+    console.log("weee are hereee111", formInput.price, formInput.contractAddress, formInput.buyerAddress)
+    // do the check and then do an error state you know
+    const reg = /^0x[a-fA-F0-9]{40}$/
+
+    // let validAddress = formInput.contractAddress.match(reg)
+    // if (validAddress == null) {
+    //   setErrorState('Invalid Contract Address')
+    //   return
+    // }
+    // validAddress = formInput.buyerAddress.match(reg)
+    // if (validAddress == null) {
+    //   setErrorState('Invalid Buyer Address')
+    //   return
+    // }
+
+    const web3Modal = new Web3Modal()
+    const connection = await web3Modal.connect()
+    const provider = new ethers.providers.Web3Provider(connection)
+    const signer = provider.getSigner()
+    console.log("who is the signer", signer)
+    let up_address = await signer.getAddress()
+    const lks_provider = new ethers.providers.JsonRpcProvider('https://rpc.l16.lukso.network')
+    const contract = new ethers.Contract(contractSwapAddress, ContractSwap.abi, lks_provider)
+    console.log(await contract.owner())
+    // transform to ether denomination
+    console.log("did we make it here?2333")
+    const price = ethers.utils.parseUnits(formInput.price, 'ether')
+    try {
+      if (currencyState === "USDC") {
+        const transaction = await contract.createContractSwap(formInput.contractAddress, formInput.buyerAddress, price, 2)
+        transaction.wait()
+      }
+      else {
+        const targetPayload = contract.interface.encodeFunctionData(
+          'createContractSwap',
+          [formInput.contractAddress, formInput.buyerAddress, price, 1]
+        );
+        // 2. encode the payload to be run on the UP,
+        // passing the payload to be run at the targetContract as 4th parameter
+        const OPERATION_CALL = 0;
+        
+        const myUP = new ethers.Contract(up_address, UniversalProfile.abi, lks_provider);
+        console.log("test 1")
+        console.log("test 2")
+        console.log(await contract.owner())
+        console.log("test 3")
+        const owner = await myUP.owner();
+        console.log(owner,"whyyy")
+        const myKM = new ethers.Contract(owner, KeyManager.abi, lks_provider);
+        console.log("test 2")
+        let abiPayload = myUP.interface.encodeFunctionData('execute', [
+          OPERATION_CALL,
+          contractSwapAddress,
+          0,
+          targetPayload,
+        ], {
+          gasLimit: '50000000',
+        });
+        console.log("we are heeeere  11111111111222")
+        // 3. execute via the KeyManager, passing the UP payload
+        await myKM.connect(owner).execute(abiPayload);
+        const transaction = await contract.createContractSwap(formInput.contractAddress, formInput.buyerAddress, price, 1)
+        transaction.wait()
+      }
+
+
+      setLoadingState('loaded')
+    }
+    catch (err) {
+      console.log("are we here", err)
+      setErrorState(err.reason)
+    }
+
+  }
+  console.log(loadingState)
+
+  async function sellUsingLYXt() {
+    setCurrencyState("LYXt")
+  }
+  async function sellUsingUSDC() {
+    setCurrencyState("USDC")
+  }
+  if (loadingState === "loaded") {
+    return (
+      <header id='header'>
+        <div className='intro'>
+          <div className='overlay'>
+            <div className=''>
+              <div className='row'>
+                <div className='col-md-8 col-md-offset-2 intro-text'>
+                  <h3 class="text-4xl font-extrabold">
+                    Pending Contract Sales:
+                    <span></span>
+                  </h3>
+                  {saleContracts ? (
+                    <div>
+                      {saleContracts.map((contract) => (
+                        <div class="overflow-x-auto relative rounded">
+                          <table class="w-full text-xl text-left text-gray-500 dark:text-gray-400 border rounded-r-md">
+                            <thead class="text-sm text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 bg-opacity-55 dark:text-gray-400">
+                              <tr>
+                                <th scope="col" class="py-3 px-6">
+                                  Contract Address
+                                </th>
+                                <th scope="col" class="py-3 px-6">
+                                  Buyer Address
+                                </th>
+                                <th scope="col" class="py-3 px-6">
+                                  Contract Price
+                                </th>
+                                <th scope="col" class="py-3 px-6">
+                                  Contract Submitted
+                                </th>
+                                <th scope="col" class="py-3 px-6">
+                                  Return Contract
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                                <th scope="row" class="py-4 px-6 font-medium text-gray-900 whitespace-nowrap dark:text-white">
+                                  {contract.contractAddress}
+                                </th>
+                                <td class="py-4 px-6">
+                                  {contract.buyerAddress}
+                                </td>
+                                <td class="py-4 px-6">
+                                  {contract.currency == 1 ? (
+                                    <div>{contract.price} LYXt</div>
+                                  )
+                                    : (
+                                      <div>{contract.price} USDC</div>
+                                    )
+                                  }
+
+                                </td>
+                                <td class="py-4 px-6">
+                                  {contract.contractSubmitted === 'No' ? (
+                                    <button onClick={() => transferContract(contract.contractAddress)} class="bg-transparent bg-blue-500 font-semibold text-white py-2 px-3 border-t border border-gray-400 hover:border-transparent hover:bg-green-500 rounded-lg">
+                                      Submit Contract
+                                    </button>
+                                  )
+                                    : (
+                                      <div>Yes</div>
+                                    )
+                                  }
+                                </td>
+
+                                <td class="py-4 px-6">
+                                  {contract.contractSubmitted === 'No' ? (
+                                    <div>Contract hasn't been submitted</div>
+                                  )
+                                    : (
+                                      <button onClick={() => returnContract(contract.contractAddress)} class="bg-transparent bg-blue-500 font-semibold text-white py-2 px-3 border-t border border-gray-400 hover:border-transparent hover:bg-green-500 rounded-lg">
+                                        Return Contract
+                                      </button>
+                                    )
+                                  }
+                                </td>
+
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      ))}
+                    </div>
+
+
+                  )
+                    : (
+                      <h3 class="text-3xl font-bold">
+                        No contracts available
+                        <span></span>
+                      </h3>
+                    )}
+                  <h3 class="text-4xl font-extrabold">
+                    Contract Offers:
+                    <span></span>
+                  </h3>
+                  {offeredContracts ? (
+                    <div>
+                      {offeredContracts.map((contract) => (
+                        <div class="overflow-x-auto relative rounded">
+                          <table class="w-full text-xl   text-left text-gray-500 dark:text-gray-400 border rounded-r-md">
+                            <thead class="text-sm text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 bg-opacity-55 dark:text-gray-400">
+                              <tr>
+                                <th scope="col" class="py-3 px-6">
+                                  Contract Address
+                                </th>
+                                <th scope="col" class="py-3 px-6">
+                                  Seller Address
+                                </th>
+                                <th scope="col" class="py-3 px-6">
+                                  Contract Price
+                                </th>
+                                <th scope="col" class="py-3 px-6">
+                                  Contract Submitted
+                                </th>
+                                <th scope="col" class="py-3 px-6">
+                                  Purchase Contract
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                                <th scope="row" class="py-4 px-6 font-medium text-gray-900 whitespace-nowrap dark:text-white">
+                                  {contract.contractAddress}
+                                </th>
+                                <td class="py-4 px-6">
+                                  {contract.sellerAddress}
+                                </td>
+                                <td class="py-4 px-6">
+                                  {contract.currency == 1 ? (
+                                    <div>{contract.price} LYXt</div>
+                                  )
+                                    : (
+                                      <div>{contract.price} USDC</div>
+                                    )
+                                  }
+
+                                </td>
+                                <td class="py-4 px-6">
+                                  {contract.contractSubmitted === 'No' ? (
+                                    <div>No</div>
+                                  )
+                                    : (
+                                      <div>Yes</div>
+                                    )
+                                  }
+                                </td>
+
+                                <td class="py-4 px-6">
+                                  {contract.contractSubmitted === 'No' ? (
+                                    <div>Contract hasn't been submitted</div>
+                                  )
+                                    : (
+                                      <button onClick={() => purchaseContract(contract.contractAddress, contract.price)} class="bg-transparent bg-blue-500 font-semibold text-white py-2 px-3 border-t border border-gray-400 hover:border-transparent hover:bg-green-500 rounded-lg">
+                                        Purchase Contract
+                                      </button>
+                                    )
+                                  }
+                                </td>
+
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      ))}
+                    </div>
+
+
+                  )
+                    : (
+                      <h3 class="text-3xl font-bold">
+                        No contracts available
+                        <span></span>
+                      </h3>
+                    )}
+
+                  <br></br><br></br>
+                  <a
+                    clasll='rounded-full'
+                    className='btn btn-custom btn-lg'
+                    onClick={contractSwapState}
+                  >
+                    Create New Contract Swap
+                  </a>{' '}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+    )
+  }
+  else if (loadingState === "contractSwap") {
+    return (
+      <header id='header'>
+        <div className='intro'>
+          <div className='overlay'>
+            <div className='container'>
+              <div className='row'>
+
+                <div className='col-md-8 col-md-offset-2 intro-text'>
+                  <div>
+                    <div><h3 class="block text-md font-bold center text-gray-700 " for="Contract_Address">
+                      Create Contract Swap
+                    </h3> </div>
+                  </div>
+                  <div class="w-full max-w-2xl	 center">
+                    <form class="shadow-md rounded px-8 pt-6 pb-8 mb-4">
+                      <div class="mb-4">
+                        <label class="block left text-gray-700 text-md font-bold mb-2" for="Contract_Address">
+                          Contract Address
+                        </label>
+                        <input onChange={e => updateFormInput({ ...formInput, contractAddress: e.target.value })} class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" id="username" type="text" placeholder="0xContract Address" />
+                      </div>
+                      <div class="mb-4">
+                        <label class="block text-gray-700 text-md font-bold mb-2" for="buyerAddress">
+                          Buyer Address
+                        </label>
+                        <input onChange={e => updateFormInput({ ...formInput, buyerAddress: e.target.value })} class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" id="buyerAddress" type="buyerAddress" placeholder="0xBuyer Address" />
+                      </div>
+                      <div class="mb-4">
+                        <label onChange={e => updateFormInput({ ...formInput, price: e.target.value })} class="block text-gray-700 text-xl font-bold mb-2 " for="price">
+                          Price
+                        </label>
+                        {currencyState === 'USDC' ? (
+                          <input type="number" name="price" onChange={e => updateFormInput({ ...formInput, price: e.target.value })} class=" block font-normal rounded border border-grey-lighter font-bold shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder='USDC' />) :
+                          (
+                            <input type="number" name="price" onChange={e => updateFormInput({ ...formInput, price: e.target.value })} class=" block font-normal rounded border border-grey-lighter font-bold shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder='LYXt' />
+                          )
+                        }
+                        <div>
+                          <ul class="grid grid-cols-2 float-left">
+                            <span >
+                              <input onClick={sellUsingLYXt} class="sr-only peer" type="radio" value="LYXt" name="answer" id="LYXt" />
+                              <label class="flex p-5 bg-white border border-gray-300 rounded-lg cursor-pointer focus:outline-none hover:bg-gray-50 peer-checked peer-checked:ring-2 peer-checked:border-transparent" for="LYXt">LYXt</label>
+                            </span>
+                            <span>
+                              <input onClick={sellUsingUSDC} class="sr-only peer" type="radio" value="USDC" name="answer" id="USDC" />
+                              <label class="flex p-5 bg-white border border-gray-300 rounded-lg cursor-pointer focus:outline-none hover:bg-gray-50 peer-checked peer-checked:ring-2 peer-checked:border-transparent" for="USDC">USDC</label>
+                            </span>
+                          </ul>
+                        </div>
+                      </div>
+                      <br></br><br></br><br></br>
+                      <a
+                        className='btn btn-custom btn-lg text-bold'
+                        onClick={createContractSwap}
+                      >
+                        Submit
+                      </a>{' '}
+                      <h4 class="center italic text-gray-700 text-base"> Please note that a 2.5%  fee is applied to the final price of the contract</h4>
+                    </form>
+                  </div>
+                  <div class="text-red-500 text-3xl font-bold font-mono">{errorState}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+    )
+  }
+  else {
+    return (
+      <header id='header'>
+        <div className='intro'>
+          <div className='overlay'>
+            <div className='container'>
+              <div className='row'>
+                <div className='col-md-8 col-md-offset-2 intro-text'>
+                  <h2 class="font-extrabold">
+                    The easiest way to trade Smart Contracts on web3
+                    <span></span>
+                  </h2>
+                  <p></p>
+                  <a
+                    className='btn btn-custom btn-lg'
+                    onClick={requireWallet}
+                  >
+                    Connect Wallet to Start
+                  </a>{' '}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+    )
+  }
+}
